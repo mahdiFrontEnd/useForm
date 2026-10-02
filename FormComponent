@@ -1,0 +1,77 @@
+// LoginForm.tsx
+import { useForm } from "./hooks/useForm";
+
+type LoginValues = {
+  email: string;
+  password: string;
+};
+
+export function LoginForm() {
+  const form = useForm<LoginValues>({
+    initialValues: { email: "", password: "" },
+    validators: {
+      email: (v) => {
+        const value = v as string;
+        if (!value) return "ایمیل الزامیه";
+        if (!value.includes("@")) return "ایمیل معتبر نیست";
+        return null;
+      },
+      password: (v) => {
+        const value = v as string;
+        if (!value) return "رمز الزامیه";
+        if (value.length < 6) return "حداقل ۶ کاراکتر";
+        return null;
+      },
+    },
+    onSubmit: async (values) => {
+      await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+    },
+  });
+
+  return (
+    <form onSubmit={form.handleSubmit} className="form">
+      <div>
+        <label>ایمیل</label>
+        <input
+          type="email"
+          value={form.values.email}
+          onChange={(e) => form.handleChange("email", e.target.value)}
+          onBlur={() => form.handleBlur("email")}
+          aria-invalid={!!form.errors.email}
+        />
+        {form.touched.email && form.errors.email && (
+          <span className="error">{form.errors.email}</span>
+        )}
+      </div>
+
+      <div>
+        <label>رمز عبور</label>
+        <input
+          type="password"
+          value={form.values.password}
+          onChange={(e) => form.handleChange("password", e.target.value)}
+          onBlur={() => form.handleBlur("password")}
+          aria-invalid={!!form.errors.password}
+        />
+        {form.touched.password && form.errors.password && (
+          <span className="error">{form.errors.password}</span>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={!form.isValid || form.isSubmitting}
+      >
+        {form.isSubmitting ? "در حال ارسال..." : "ورود"}
+      </button>
+
+      <button type="button" onClick={form.reset}>
+        پاک کردن
+      </button>
+    </form>
+  );
+}
