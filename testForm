@@ -1,0 +1,141 @@
+// useForm.test.ts
+import { renderHook, act } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { useForm } from "./useForm";
+
+describe("useForm", () => {
+  const config = {
+    initialValues: { email: "", password: "" },
+    validators: {
+      email: (v: unknown) =>
+        (v as string).includes("@") ? null : "invalid email",
+      password: (v: unknown) =>
+        (v as string).length >= 6 ? null : "too short",
+    },
+    onSubmit: vi.fn(),
+  };
+
+  it("مقادیر اولیه رو برمی‌گردونه", () => {
+    const { result } = renderHook(() => useForm(config));
+    expect(result.current.values).toEqual({ email: "", password: "" });
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
+  it("handleChange مقدار رو آپدیت می‌کنه", () => {
+    const { result } = renderHook(() => useForm(config));
+
+    act(() => {
+      result.current.handleChange("email", "ali@test.com");
+    });
+
+    expect(result.current.values.email).toBe("ali@test.com");
+  });
+
+  it("handleBlur touched و error رو ست می‌کنه", () => {
+    const { result } = renderHook(() => useForm(config));
+
+    act(() => {
+      result.current.handleBlur("email");
+    });
+
+    expect(result.current.touched.email).toBe(true);
+    expect(result.current.errors.email).toBe("invalid email");
+  });
+
+  it("isValid درست محاسبه می‌شه", () => {
+    const { result } = renderHook(() => useForm(config));
+    expect(result.current.isValid).toBe(false);
+
+    act(() => {
+      result.current.handleChange("email", "ali@test.com");
+      result.current.handleChange("password", "secret123");
+    });
+
+    expect(result.current.isValid).toBe(true);
+  });
+
+  it("handleSubmit با فیلد نامعتبر صدا زده نمی‌شه", async () => {
+    const onSubmit = vi.fn();
+    const { result } = renderHook(() =>
+      useForm({ ...config, onSubmit })
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(result.current.errors.email).toBeTruthy();
+  });
+
+  it("handleSubmit با فیلد معتبر صدا زده می‌شه", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useForm({ ...config, onSubmit })
+    );
+
+    act(() => {
+      result.current.handleChange("email", "ali@test.com");
+      result.current.handleChange("password", "secret123");
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      email: "ali@test.com",
+      password: "secret123",
+    });
+  });
+
+  it("reset همه‌چی رو پاک می‌کنه", () => {
+    const { result } = renderHook(() => useForm(config));
+
+    act(() => {
+      result.current.handleChange("email", "test@test.com");
+      result.current.handleBlur("email");
+    });
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.values).toEqual({ email: "", password: "" });
+    expect(result.current.errors).toEqual({});
+    expect(result.current.touched).toEqual({});
+  });
+
+  it("isSubmitting حین submit true می‌شه", async () => {
+    const onSubmit = vi.fn(
+      () => new Promise<void>((r) => setTimeout(r, 100))
+    );
+    const { result } = renderHook(() =>
+      useForm({ ...config, onSubmit })
+    );
+
+    act(() => {
+      result.current.handleChange("email", "ali@test.com");
+      result.current.handleChange("password", "secret123");
+    });
+
+    let submitPromise: Promise<void>;
+    act(() => {
+      submitPromise = result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
+    });
+
+    expect(result.current.isSubmitting).toBe(true);
+
+    await act(async () => {
+      await submitPromise!;
+    });
+
+    expect(result.current.isSubmitting).toBe(false);
+  });
+});
